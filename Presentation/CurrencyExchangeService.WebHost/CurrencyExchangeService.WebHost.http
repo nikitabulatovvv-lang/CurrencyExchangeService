@@ -1,0 +1,6 @@
+@CurrencyExchangeService.WebHost_HostAddress = http://localhost:5293
+
+GET {{CurrencyExchangeService.WebHost_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
