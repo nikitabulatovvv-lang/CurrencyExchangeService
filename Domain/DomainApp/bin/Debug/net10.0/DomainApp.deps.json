@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "DomainApp/1.0.0": {
+        "dependencies": {
+          "CurrencyExchangeService.Domain": "1.0.0",
+          "CurrencyExchangeService.ValueObjects": "1.0.0"
+        },
+        "runtime": {
+          "DomainApp.dll": {}
+        }
+      },
+      "CurrencyExchangeService.Domain/1.0.0": {
+        "dependencies": {
+          "CurrencyExchangeService.ValueObjects": "1.0.0"
+        },
+        "runtime": {
+          "CurrencyExchangeService.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "CurrencyExchangeService.ValueObjects/1.0.0": {
+        "runtime": {
+          "CurrencyExchangeService.ValueObjects.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DomainApp/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CurrencyExchangeService.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CurrencyExchangeService.ValueObjects/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

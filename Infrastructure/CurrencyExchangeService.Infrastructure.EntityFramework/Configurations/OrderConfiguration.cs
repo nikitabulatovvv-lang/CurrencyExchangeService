@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using CurrencyExchangeService.Domain.Entities;
 using CurrencyExchangeService.Domain.Enums;
+using CurrencyExchangeService.ValueObjects;
 
 namespace CurrencyExchangeService.Infrastructure.EntityFramework.Configurations;
 
@@ -32,11 +33,19 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.Amount)
             .HasColumnName("amount")
             .IsRequired()
+            .HasConversion(
+                amount => amount.Value,
+                value => new Amount(value)
+            )
             .HasPrecision(18, 2);
 
         builder.Property(x => x.Rate)
             .HasColumnName("rate")
             .IsRequired()
+            .HasConversion(
+                rate => rate.Value,
+                value => new Rate(value)
+            )
             .HasPrecision(18, 6);
 
         builder.Property(x => x.Status)
@@ -71,12 +80,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(x => x.BaseCurrency)
-            .WithMany("_baseOrders")
+            .WithMany()
             .HasForeignKey("BaseCurrencyId")
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.QuoteCurrency)
-            .WithMany("_quoteOrders")
+            .WithMany()
             .HasForeignKey("QuoteCurrencyId")
             .OnDelete(DeleteBehavior.Restrict);
 

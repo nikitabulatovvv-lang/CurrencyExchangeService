@@ -1,0 +1,15 @@
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\bin\Debug\net10.0\CurrencyExchangeService.Domain.deps.json
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\bin\Debug\net10.0\CurrencyExchangeService.Domain.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\bin\Debug\net10.0\CurrencyExchangeService.Domain.pdb
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\bin\Debug\net10.0\CurrencyExchangeService.ValueObjects.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\bin\Debug\net10.0\CurrencyExchangeService.ValueObjects.pdb
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.csproj.AssemblyReference.cache
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.AssemblyInfoInputs.cache
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.AssemblyInfo.cs
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.csproj.CoreCompileInputs.cache
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\Currency.D2DC11F3.Up2Date
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\refint\CurrencyExchangeService.Domain.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\CurrencyExchangeService.Domain.pdb
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.Domain\obj\Debug\net10.0\ref\CurrencyExchangeService.Domain.dll

@@ -1,0 +1,11 @@
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\bin\Debug\net10.0\CurrencyExchangeService.ValueObjects.deps.json
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\bin\Debug\net10.0\CurrencyExchangeService.ValueObjects.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\bin\Debug\net10.0\CurrencyExchangeService.ValueObjects.pdb
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.AssemblyInfoInputs.cache
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.AssemblyInfo.cs
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.csproj.CoreCompileInputs.cache
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\refint\CurrencyExchangeService.ValueObjects.dll
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\CurrencyExchangeService.ValueObjects.pdb
+C:\Users\nikit\Desktop\cursor\CurrencyExchangeService\Domain\CurrencyExchangeService.ValueObjects\obj\Debug\net10.0\ref\CurrencyExchangeService.ValueObjects.dll
