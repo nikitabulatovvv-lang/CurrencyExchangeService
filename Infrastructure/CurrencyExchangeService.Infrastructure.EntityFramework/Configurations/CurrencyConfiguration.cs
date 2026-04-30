@@ -25,19 +25,6 @@ public class CurrencyConfiguration : IEntityTypeConfiguration<Currency>
             .HasMaxLength(CurrencyCodeValidator.MAX_LENGTH);
 
         builder.HasIndex(x => x.Code).IsUnique();
-
-        builder.HasMany<Order>("_baseOrders")
-            .WithOne(o => o.BaseCurrency)
-            .HasForeignKey("BaseCurrencyId")
-            .HasPrincipalKey(x => x.Id);
-
-        builder.HasMany<Order>("_quoteOrders")
-            .WithOne(o => o.QuoteCurrency)
-            .HasForeignKey("QuoteCurrencyId")
-            .HasPrincipalKey(x => x.Id);
-
-        builder.Ignore(x => x.BaseOrders);
-        builder.Ignore(x => x.QuoteOrders);
     }
 }
 

@@ -40,11 +40,16 @@ public class Seller : Entity<Guid>
     public Order CreateSellOrder(
         Currency baseCurrency,
         Currency quoteCurrency,
-        decimal amount,
-        decimal rate
+        Amount amount,
+        Rate rate
     )
     {
-        var order = Order.CreateSellOrder(this, baseCurrency, quoteCurrency, amount, rate);
+        if (baseCurrency is null) throw new ArgumentNullValueException(nameof(baseCurrency));
+        if (quoteCurrency is null) throw new ArgumentNullValueException(nameof(quoteCurrency));
+        if (amount is null) throw new ArgumentNullValueException(nameof(amount));
+        if (rate is null) throw new ArgumentNullValueException(nameof(rate));
+
+        var order = new Order(this, baseCurrency, quoteCurrency, amount, rate);
         _orders.Add(order);
         return order;
     }
@@ -53,13 +58,16 @@ public class Seller : Entity<Guid>
     /// Use case: "Редактирование заявки на продажу".
     /// Возвращает true, если данные реально изменились.
     /// </summary>
-    public bool EditSellOrder(Order order, decimal newAmount, decimal newRate)
+    public bool EditSellOrder(Order order, Amount newAmount, Rate newRate)
     {
         if (order is null) throw new ArgumentNullException(nameof(order));
         if (order.Seller != this)
             throw new OrderOwnershipException(this.Id, "edit_sell_order", order.Id, OrderOwnerType.Seller, this.Id);
 
-        return order.EditSell(this.Id, newAmount, newRate);
+        if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
+        if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
+
+        return order.EditSell(newAmount, newRate);
     }
 
     /// <summary>
@@ -69,7 +77,19 @@ public class Seller : Entity<Guid>
     public bool ConfirmDeal(Order order)
     {
         if (order is null) throw new ArgumentNullException(nameof(order));
-        return order.Confirm(this.Id);
+        return order.Confirm();
+    }
+
+    /// <summary>
+    /// Отмена собственной заявки на продажу.
+    /// </summary>
+    public bool CancelSellOrder(Order order)
+    {
+        if (order is null) throw new ArgumentNullException(nameof(order));
+        if (order.Seller != this)
+            throw new OrderOwnershipException(this.Id, "cancel_sell_order", order.Id, OrderOwnerType.Seller, this.Id);
+
+        return order.CancelSell();
     }
 
     /// <summary>
@@ -78,5 +98,14 @@ public class Seller : Entity<Guid>
     /// </summary>
     public IReadOnlyCollection<Order> GetActiveOrders()
         => _orders.Where(o => o.IsActive).ToList().AsReadOnly();
+
+    /// <summary>
+    /// Согласие на сделку по чужой активной заявке.
+    /// </summary>
+    public bool AcceptDeal(Order order)
+    {
+        if (order is null) throw new ArgumentNullException(nameof(order));
+        return order.AcceptByCounterparty();
+    }
 }
 

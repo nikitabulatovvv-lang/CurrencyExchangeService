@@ -1,6 +1,7 @@
 using CurrencyExchangeService.Domain.Base;
 using CurrencyExchangeService.Domain.Enums;
 using CurrencyExchangeService.Domain.Exceptions;
+using CurrencyExchangeService.ValueObjects;
 
 namespace CurrencyExchangeService.Domain.Entities;
 
@@ -24,8 +25,8 @@ public class Order : Entity<Guid>
     public Currency BaseCurrency { get; private set; } = default!;
     public Currency QuoteCurrency { get; private set; } = default!;
 
-    public decimal Amount { get; private set; }
-    public decimal Rate { get; private set; }
+    public Amount Amount { get; private set; } = default!;
+    public Rate Rate { get; private set; } = default!;
 
     public OrderStatus Status { get; private set; }
 
@@ -49,8 +50,8 @@ public class Order : Entity<Guid>
         Seller? seller,
         Currency baseCurrency,
         Currency quoteCurrency,
-        decimal amount,
-        decimal rate,
+        Amount amount,
+        Rate rate,
         OrderStatus status,
         DateTime createdAt
     ) : base(id)
@@ -58,31 +59,16 @@ public class Order : Entity<Guid>
         Type = type;
         Buyer = buyer;
         Seller = seller;
-
-        BaseCurrency = baseCurrency ?? throw new ArgumentNullValueException(nameof(baseCurrency));
-        QuoteCurrency = quoteCurrency ?? throw new ArgumentNullValueException(nameof(quoteCurrency));
-        if (baseCurrency.Id == quoteCurrency.Id)
-            throw new OrderDataValidationException(
-                nameof(baseCurrency),
-                "BaseCurrency and QuoteCurrency must be different."
-            );
-
-        if (amount <= 0) throw new OrderDataValidationException(nameof(amount), amount);
-        if (rate <= 0) throw new OrderDataValidationException(nameof(rate), rate);
-
+        BaseCurrency = baseCurrency;
+        QuoteCurrency = quoteCurrency;
         Amount = amount;
         Rate = rate;
         Status = status;
         CreatedAt = createdAt.Kind == DateTimeKind.Utc ? createdAt : DateTime.SpecifyKind(createdAt, DateTimeKind.Utc);
     }
 
-    /// <summary>
-    /// Use case: "Создание заявки на покупку".
-    /// </summary>
-    internal static Order CreateBuyOrder(Buyer buyer, Currency baseCurrency, Currency quoteCurrency, decimal amount, decimal rate)
-    {
-        if (buyer is null) throw new ArgumentNullException(nameof(buyer));
-        return new Order(
+    internal Order(Buyer buyer, Currency baseCurrency, Currency quoteCurrency, Amount amount, Rate rate)
+        : this(
             Guid.NewGuid(),
             OrderType.Buy,
             buyer,
@@ -93,16 +79,14 @@ public class Order : Entity<Guid>
             rate,
             OrderStatus.Active,
             DateTime.UtcNow
-        );
+        )
+    {
+        if (buyer is null) throw new ArgumentNullValueException(nameof(buyer));
+        ValidateOrderData(baseCurrency, quoteCurrency, amount, rate);
     }
 
-    /// <summary>
-    /// Use case: "Создание заявки на продажу".
-    /// </summary>
-    internal static Order CreateSellOrder(Seller seller, Currency baseCurrency, Currency quoteCurrency, decimal amount, decimal rate)
-    {
-        if (seller is null) throw new ArgumentNullException(nameof(seller));
-        return new Order(
+    internal Order(Seller seller, Currency baseCurrency, Currency quoteCurrency, Amount amount, Rate rate)
+        : this(
             Guid.NewGuid(),
             OrderType.Sell,
             buyer: null,
@@ -113,22 +97,55 @@ public class Order : Entity<Guid>
             rate,
             OrderStatus.Active,
             DateTime.UtcNow
-        );
+        )
+    {
+        if (seller is null) throw new ArgumentNullValueException(nameof(seller));
+        ValidateOrderData(baseCurrency, quoteCurrency, amount, rate);
+    }
+
+    private static void ValidateOrderData(
+        Currency baseCurrency,
+        Currency quoteCurrency,
+        Amount amount,
+        Rate rate
+    )
+    {
+        if (baseCurrency is null) throw new ArgumentNullValueException(nameof(baseCurrency));
+        if (quoteCurrency is null) throw new ArgumentNullValueException(nameof(quoteCurrency));
+        if (amount is null) throw new ArgumentNullValueException(nameof(amount));
+        if (rate is null) throw new ArgumentNullValueException(nameof(rate));
+
+        if (baseCurrency.Code == quoteCurrency.Code)
+            throw new OrderDataValidationException(
+                nameof(baseCurrency),
+                "BaseCurrency and QuoteCurrency must be different."
+            );
     }
 
     /// <summary>
     /// Use case: "Отмена заявки на покупку".
     /// </summary>
-    internal bool Cancel(Guid actorId)
+    internal bool CancelBuy()
     {
         if (Type != OrderType.Buy)
-            throw new OrderInvalidOrderTypeException(actorId, "cancel_buy_order", OrderType.Buy, Type);
-
-        if (Buyer is null || Buyer.Id != actorId)
-            throw new OrderOwnershipException(actorId, "cancel_buy_order", Id, OrderOwnerType.Buyer, Buyer?.Id);
+            throw new InvalidOperationException($"Order '{Id}' is not BUY and cannot be cancelled by buyer flow.");
 
         if (Status != OrderStatus.Active)
-            throw new OrderInvalidStatusTransitionException(actorId, "cancel_buy_order", Id, Status, OrderStatus.Cancelled);
+            throw new InvalidOperationException($"Order '{Id}' cannot be cancelled from status '{Status}'.");
+
+        return ApplyStatusChange(OrderStatus.Cancelled);
+    }
+
+    /// <summary>
+    /// Use case: "Отмена заявки на продажу".
+    /// </summary>
+    internal bool CancelSell()
+    {
+        if (Type != OrderType.Sell)
+            throw new InvalidOperationException($"Order '{Id}' is not SELL and cannot be cancelled by seller flow.");
+
+        if (Status != OrderStatus.Active)
+            throw new InvalidOperationException($"Order '{Id}' cannot be cancelled from status '{Status}'.");
 
         return ApplyStatusChange(OrderStatus.Cancelled);
     }
@@ -136,19 +153,38 @@ public class Order : Entity<Guid>
     /// <summary>
     /// Use case: "Редактирование заявки на продажу".
     /// </summary>
-    internal bool EditSell(Guid actorId, decimal newAmount, decimal newRate)
+    internal bool EditSell(Amount newAmount, Rate newRate)
     {
         if (Type != OrderType.Sell)
-            throw new OrderInvalidOrderTypeException(actorId, "edit_sell_order", OrderType.Sell, Type);
-
-        if (Seller is null || Seller.Id != actorId)
-            throw new OrderOwnershipException(actorId, "edit_sell_order", Id, OrderOwnerType.Seller, Seller?.Id);
+            throw new InvalidOperationException($"Order '{Id}' is not SELL and cannot be edited by seller flow.");
 
         if (Status != OrderStatus.Active)
-            throw new OrderInvalidStatusTransitionException(actorId, "edit_sell_order", Id, Status, Status);
+            throw new InvalidOperationException($"Order '{Id}' cannot be edited in status '{Status}'.");
 
-        if (newAmount <= 0) throw new OrderDataValidationException(nameof(newAmount), newAmount);
-        if (newRate <= 0) throw new OrderDataValidationException(nameof(newRate), newRate);
+        if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
+        if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
+
+        var isChanged = Amount != newAmount || Rate != newRate;
+        if (!isChanged) return false;
+
+        Amount = newAmount;
+        Rate = newRate;
+        return true;
+    }
+
+    /// <summary>
+    /// Use case: "Редактирование заявки на покупку".
+    /// </summary>
+    internal bool EditBuy(Amount newAmount, Rate newRate)
+    {
+        if (Type != OrderType.Buy)
+            throw new InvalidOperationException($"Order '{Id}' is not BUY and cannot be edited by buyer flow.");
+
+        if (Status != OrderStatus.Active)
+            throw new InvalidOperationException($"Order '{Id}' cannot be edited in status '{Status}'.");
+
+        if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
+        if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
 
         var isChanged = Amount != newAmount || Rate != newRate;
         if (!isChanged) return false;
@@ -161,23 +197,21 @@ public class Order : Entity<Guid>
     /// <summary>
     /// Use case: "Подтверждение сделки".
     /// </summary>
-    internal bool Confirm(Guid actorId)
+    internal bool Confirm()
     {
-        var expectedOwner = Type == OrderType.Buy ? OrderOwnerType.Buyer : OrderOwnerType.Seller;
-
         if (Status != OrderStatus.Active)
-            throw new OrderInvalidStatusTransitionException(actorId, "confirm_deal", Id, Status, OrderStatus.Completed);
+            throw new InvalidOperationException($"Order '{Id}' cannot be confirmed from status '{Status}'.");
 
-        if (expectedOwner == OrderOwnerType.Buyer)
-        {
-            if (Buyer is null || Buyer.Id != actorId)
-                throw new OrderOwnershipException(actorId, "confirm_deal", Id, expectedOwner, Buyer?.Id);
-        }
-        else
-        {
-            if (Seller is null || Seller.Id != actorId)
-                throw new OrderOwnershipException(actorId, "confirm_deal", Id, expectedOwner, Seller?.Id);
-        }
+        return ApplyStatusChange(OrderStatus.Completed);
+    }
+
+    /// <summary>
+    /// Согласие на сделку второй стороной (контрагентом).
+    /// </summary>
+    internal bool AcceptByCounterparty()
+    {
+        if (Status != OrderStatus.Active)
+            throw new InvalidOperationException($"Order '{Id}' cannot be accepted from status '{Status}'.");
 
         return ApplyStatusChange(OrderStatus.Completed);
     }

@@ -39,11 +39,16 @@ public class Buyer : Entity<Guid>
     public Order CreateBuyOrder(
         Currency baseCurrency,
         Currency quoteCurrency,
-        decimal amount,
-        decimal rate
+        Amount amount,
+        Rate rate
     )
     {
-        var order = Order.CreateBuyOrder(this, baseCurrency, quoteCurrency, amount, rate);
+        if (baseCurrency is null) throw new ArgumentNullValueException(nameof(baseCurrency));
+        if (quoteCurrency is null) throw new ArgumentNullValueException(nameof(quoteCurrency));
+        if (amount is null) throw new ArgumentNullValueException(nameof(amount));
+        if (rate is null) throw new ArgumentNullValueException(nameof(rate));
+
+        var order = new Order(this, baseCurrency, quoteCurrency, amount, rate);
         _orders.Add(order);
         return order;
     }
@@ -58,8 +63,32 @@ public class Buyer : Entity<Guid>
         if (order.Buyer != this)
             throw new OrderOwnershipException(this.Id, "cancel_buy_order", order.Id, OrderOwnerType.Buyer, this.Id);
 
-        var result = order.Cancel(this.Id);
+        var result = order.CancelBuy();
         return result;
+    }
+
+    /// <summary>
+    /// Use case: "Редактирование заявки на покупку".
+    /// </summary>
+    public bool EditBuyOrder(Order order, Amount newAmount, Rate newRate)
+    {
+        if (order is null) throw new ArgumentNullException(nameof(order));
+        if (order.Buyer != this)
+            throw new OrderOwnershipException(this.Id, "edit_buy_order", order.Id, OrderOwnerType.Buyer, this.Id);
+
+        if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
+        if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
+
+        return order.EditBuy(newAmount, newRate);
+    }
+
+    /// <summary>
+    /// Use case: "Согласие на сделку по чужой активной заявке".
+    /// </summary>
+    public bool AcceptDeal(Order order)
+    {
+        if (order is null) throw new ArgumentNullException(nameof(order));
+        return order.AcceptByCounterparty();
     }
 }
 
