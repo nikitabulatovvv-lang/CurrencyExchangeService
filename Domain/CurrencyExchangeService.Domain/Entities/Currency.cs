@@ -17,7 +17,7 @@ public class Currency : Entity<Guid>
     {
     }
 
-    public Currency(Guid id, CurrencyCode code) : base(id)
+    protected Currency(Guid id, CurrencyCode code) : base(id)
     {
         Code = code ?? throw new ArgumentNullValueException(nameof(code));
     }

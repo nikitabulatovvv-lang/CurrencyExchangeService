@@ -7,11 +7,12 @@ namespace CurrencyExchangeService.Domain.Entities;
 
 /// <summary>
 /// Заявка на обмен валют.
-/// 
+///
 /// Важно:
-/// - хранит ссылки на Buyer/Seller и Currency
-/// - управляет своим статусом и пишет историю смены статусов (OrderStatusHistory)
-/// - методы use-case диаграммы (создание/редактирование/отмена/подтверждение)
+/// - для заявки на покупку (<see cref="OrderType.Buy"/>) инициатор — <see cref="Buyer"/> (поле <see cref="Buyer"/>), <see cref="Seller"/> отсутствует до сделки;
+/// - для заявки на продажу (<see cref="OrderType.Sell"/>) инициатор — <see cref="Seller"/> (поле <see cref="Seller"/>), <see cref="Buyer"/> отсутствует до сделки;
+/// - управляет статусом и пишет историю (<see cref="OrderStatusHistory"/>);
+/// - методы изменения статуса получают на вход сущность, от имени которой выполняется действие, и проверяют права.
 /// </summary>
 public class Order : Entity<Guid>
 {
@@ -19,7 +20,10 @@ public class Order : Entity<Guid>
 
     public OrderType Type { get; private set; }
 
+    /// <summary>Инициатор заявки на покупку (для типа Buy).</summary>
     public Buyer? Buyer { get; private set; }
+
+    /// <summary>Инициатор заявки на продажу (для типа Sell).</summary>
     public Seller? Seller { get; private set; }
 
     public Currency BaseCurrency { get; private set; } = default!;
@@ -35,7 +39,7 @@ public class Order : Entity<Guid>
     public IReadOnlyCollection<OrderStatusHistory> StatusHistory => _statusHistory.ToList().AsReadOnly();
 
     /// <summary>
-    /// Активна ли заявка (используется для "просмотра активных заявок").
+    /// Активна ли заявка (используется для «просмотра активных заявок»).
     /// </summary>
     public bool IsActive => Status == OrderStatus.Active;
 
@@ -43,7 +47,7 @@ public class Order : Entity<Guid>
     {
     }
 
-    private Order(
+    protected Order(
         Guid id,
         OrderType type,
         Buyer? buyer,
@@ -56,6 +60,11 @@ public class Order : Entity<Guid>
         DateTime createdAt
     ) : base(id)
     {
+        if (baseCurrency is null) throw new ArgumentNullValueException(nameof(baseCurrency));
+        if (quoteCurrency is null) throw new ArgumentNullValueException(nameof(quoteCurrency));
+        if (amount is null) throw new ArgumentNullValueException(nameof(amount));
+        if (rate is null) throw new ArgumentNullValueException(nameof(rate));
+
         Type = type;
         Buyer = buyer;
         Seller = seller;
@@ -67,7 +76,14 @@ public class Order : Entity<Guid>
         CreatedAt = createdAt.Kind == DateTimeKind.Utc ? createdAt : DateTime.SpecifyKind(createdAt, DateTimeKind.Utc);
     }
 
-    internal Order(Buyer buyer, Currency baseCurrency, Currency quoteCurrency, Amount amount, Rate rate)
+    internal Order(
+        Buyer buyer,
+        Currency baseCurrency,
+        Currency quoteCurrency,
+        Amount amount,
+        Rate rate,
+        DateTime createdAtUtc
+    )
         : this(
             Guid.NewGuid(),
             OrderType.Buy,
@@ -78,14 +94,21 @@ public class Order : Entity<Guid>
             amount,
             rate,
             OrderStatus.Active,
-            DateTime.UtcNow
+            createdAtUtc
         )
     {
         if (buyer is null) throw new ArgumentNullValueException(nameof(buyer));
         ValidateOrderData(baseCurrency, quoteCurrency, amount, rate);
     }
 
-    internal Order(Seller seller, Currency baseCurrency, Currency quoteCurrency, Amount amount, Rate rate)
+    internal Order(
+        Seller seller,
+        Currency baseCurrency,
+        Currency quoteCurrency,
+        Amount amount,
+        Rate rate,
+        DateTime createdAtUtc
+    )
         : this(
             Guid.NewGuid(),
             OrderType.Sell,
@@ -96,14 +119,17 @@ public class Order : Entity<Guid>
             amount,
             rate,
             OrderStatus.Active,
-            DateTime.UtcNow
+            createdAtUtc
         )
     {
         if (seller is null) throw new ArgumentNullValueException(nameof(seller));
         ValidateOrderData(baseCurrency, quoteCurrency, amount, rate);
     }
 
-    private static void ValidateOrderData(
+    /// <summary>
+    /// Проверка данных заявки (валюты, сумма, курс). Не static: логика относится к сущности заявки.
+    /// </summary>
+    private void ValidateOrderData(
         Currency baseCurrency,
         Currency quoteCurrency,
         Amount amount,
@@ -123,43 +149,79 @@ public class Order : Entity<Guid>
     }
 
     /// <summary>
-    /// Use case: "Отмена заявки на покупку".
+    /// Отмена заявки на покупку инициатором-покупателем.
     /// </summary>
-    internal bool CancelBuy()
+    internal bool CancelBuy(Buyer actor)
     {
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+
         if (Type != OrderType.Buy)
-            throw new InvalidOperationException($"Order '{Id}' is not BUY and cannot be cancelled by buyer flow.");
+            throw new OrderInvalidOrderTypeBuyerException(actor, this, OrderType.Buy, "Отмена заявки на покупку");
+
+        if (Buyer is null)
+            throw new InvalidOperationException($"Order '{Id}' is BUY but has no buyer.");
+
+        if (actor.Id != Buyer.Id)
+            throw new OrderBuyerOwnershipException(actor, Buyer, this, "Отмена заявки на покупку");
 
         if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be cancelled from status '{Status}'.");
+            throw new OrderInvalidStatusTransitionBuyerException(
+                actor,
+                this,
+                "Отмена заявки на покупку",
+                Status,
+                OrderStatus.Cancelled
+            );
 
-        return ApplyStatusChange(OrderStatus.Cancelled);
+        return ApplyStatusChange(OrderStatus.Cancelled, DateTime.UtcNow);
     }
 
     /// <summary>
-    /// Use case: "Отмена заявки на продажу".
+    /// Отмена заявки на продажу инициатором-продавцом.
     /// </summary>
-    internal bool CancelSell()
+    internal bool CancelSell(Seller actor)
     {
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+
         if (Type != OrderType.Sell)
-            throw new InvalidOperationException($"Order '{Id}' is not SELL and cannot be cancelled by seller flow.");
+            throw new OrderInvalidOrderTypeSellerException(actor, this, OrderType.Sell, "Отмена заявки на продажу");
+
+        if (Seller is null)
+            throw new InvalidOperationException($"Order '{Id}' is SELL but has no seller.");
+
+        if (actor.Id != Seller.Id)
+            throw new OrderSellerOwnershipException(actor, Seller, this, "Отмена заявки на продажу");
 
         if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be cancelled from status '{Status}'.");
+            throw new OrderInvalidStatusTransitionSellerException(
+                actor,
+                this,
+                "Отмена заявки на продажу",
+                Status,
+                OrderStatus.Cancelled
+            );
 
-        return ApplyStatusChange(OrderStatus.Cancelled);
+        return ApplyStatusChange(OrderStatus.Cancelled, DateTime.UtcNow);
     }
 
     /// <summary>
-    /// Use case: "Редактирование заявки на продажу".
+    /// Редактирование заявки на продажу владельцем-продавцом.
     /// </summary>
-    internal bool EditSell(Amount newAmount, Rate newRate)
+    internal bool EditSell(Seller actor, Amount newAmount, Rate newRate)
     {
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+
         if (Type != OrderType.Sell)
-            throw new InvalidOperationException($"Order '{Id}' is not SELL and cannot be edited by seller flow.");
+            throw new OrderInvalidOrderTypeSellerException(actor, this, OrderType.Sell, "Редактирование заявки на продажу");
+
+        if (Seller is null)
+            throw new InvalidOperationException($"Order '{Id}' is SELL but has no seller.");
+
+        if (actor.Id != Seller.Id)
+            throw new OrderSellerOwnershipException(actor, Seller, this, "Редактирование заявки на продажу");
 
         if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be edited in status '{Status}'.");
+            throw new InvalidOperationException($"Заявку id = {Id} нельзя редактировать в статусе «{Status}» (допустимо только «{OrderStatus.Active}»).");
 
         if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
         if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
@@ -173,15 +235,20 @@ public class Order : Entity<Guid>
     }
 
     /// <summary>
-    /// Use case: "Редактирование заявки на покупку".
+    /// Редактирование заявки на покупку владельцем-покупателем.
     /// </summary>
-    internal bool EditBuy(Amount newAmount, Rate newRate)
+    internal bool EditBuy(Buyer actor, Amount newAmount, Rate newRate)
     {
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+
         if (Type != OrderType.Buy)
-            throw new InvalidOperationException($"Order '{Id}' is not BUY and cannot be edited by buyer flow.");
+            throw new OrderInvalidOrderTypeBuyerException(actor, this, OrderType.Buy, "Редактирование заявки на покупку");
+
+        if (Buyer is null || actor.Id != Buyer.Id)
+            throw new OrderBuyerOwnershipException(actor, Buyer ?? actor, this, "Редактирование заявки на покупку");
 
         if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be edited in status '{Status}'.");
+            throw new InvalidOperationException($"Заявку id = {Id} нельзя редактировать в статусе «{Status}» (допустимо только «{OrderStatus.Active}»).");
 
         if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
         if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
@@ -195,36 +262,91 @@ public class Order : Entity<Guid>
     }
 
     /// <summary>
-    /// Use case: "Подтверждение сделки".
+    /// Подтверждение сделки владельцем заявки на продажу (перевод в Completed).
     /// </summary>
-    internal bool Confirm()
+    internal bool Confirm(Seller actor)
     {
-        if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be confirmed from status '{Status}'.");
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
 
-        return ApplyStatusChange(OrderStatus.Completed);
+        if (Type != OrderType.Sell)
+            throw new OrderInvalidOrderTypeSellerException(actor, this, OrderType.Sell, "Подтверждение сделки");
+
+        if (Seller is null)
+            throw new InvalidOperationException($"Order '{Id}' is SELL but has no seller.");
+
+        if (actor.Id != Seller.Id)
+            throw new OrderSellerOwnershipException(actor, Seller, this, "Подтверждение сделки");
+
+        if (Status != OrderStatus.Active)
+            throw new OrderInvalidStatusTransitionSellerException(
+                actor,
+                this,
+                "Подтверждение сделки",
+                Status,
+                OrderStatus.Completed
+            );
+
+        return ApplyStatusChange(OrderStatus.Completed, DateTime.UtcNow);
     }
 
     /// <summary>
-    /// Согласие на сделку второй стороной (контрагентом).
+    /// Покупатель принимает чужую активную заявку на продажу (контрагент по SELL).
     /// </summary>
-    internal bool AcceptByCounterparty()
+    internal bool AcceptByCounterparty(Buyer actor)
     {
-        if (Status != OrderStatus.Active)
-            throw new InvalidOperationException($"Order '{Id}' cannot be accepted from status '{Status}'.");
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
 
-        return ApplyStatusChange(OrderStatus.Completed);
+        if (Type != OrderType.Sell)
+            throw new OrderInvalidOrderTypeBuyerException(actor, this, OrderType.Sell, "Принятие заявки на продажу");
+
+        if (Seller is null)
+            throw new InvalidOperationException($"Order '{Id}' has no seller.");
+
+        if (Status != OrderStatus.Active)
+            throw new OrderInvalidStatusTransitionBuyerException(
+                actor,
+                this,
+                "Принятие заявки на продажу",
+                Status,
+                OrderStatus.Completed
+            );
+
+        return ApplyStatusChange(OrderStatus.Completed, DateTime.UtcNow);
     }
 
-    private bool ApplyStatusChange(OrderStatus newStatus)
+    /// <summary>
+    /// Продавец принимает чужую активную заявку на покупку (контрагент по BUY).
+    /// </summary>
+    internal bool AcceptByCounterparty(Seller actor)
+    {
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+
+        if (Type != OrderType.Buy)
+            throw new OrderInvalidOrderTypeSellerException(actor, this, OrderType.Buy, "Принятие заявки на покупку");
+
+        if (Buyer is null)
+            throw new InvalidOperationException($"Order '{Id}' has no buyer.");
+
+        if (Status != OrderStatus.Active)
+            throw new OrderInvalidStatusTransitionSellerException(
+                actor,
+                this,
+                "Принятие заявки на покупку",
+                Status,
+                OrderStatus.Completed
+            );
+
+        return ApplyStatusChange(OrderStatus.Completed, DateTime.UtcNow);
+    }
+
+    private bool ApplyStatusChange(OrderStatus newStatus, DateTime changedAtUtc)
     {
         if (Status == newStatus) return false;
 
         var oldStatus = Status;
-        var history = new OrderStatusHistory(this, oldStatus, newStatus, DateTime.UtcNow);
+        var history = OrderStatusHistory.Create(this, oldStatus, newStatus, changedAtUtc);
         _statusHistory.Add(history);
         Status = newStatus;
         return true;
     }
 }
-

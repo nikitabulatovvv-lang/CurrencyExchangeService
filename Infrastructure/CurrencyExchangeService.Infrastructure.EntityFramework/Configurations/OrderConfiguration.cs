@@ -23,12 +23,22 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
                 str => str == "buy" ? OrderType.Buy : OrderType.Sell
             );
 
-        // nullable in ERD: buyers.id / sellers.id are optional in orders.*?
-        builder.Property<Guid?>("BuyerId").HasColumnName("buyer_id");
-        builder.Property<Guid?>("SellerId").HasColumnName("seller_id");
+        // nullable: для SELL нет покупателя до сделки, для BUY — нет продавца
+        builder.Property<Guid?>("BuyerId")
+            .HasColumnName("buyer_id")
+            .IsRequired(false);
 
-        builder.Property<Guid>("BaseCurrencyId").HasColumnName("base_currency_id");
-        builder.Property<Guid>("QuoteCurrencyId").HasColumnName("quote_currency_id");
+        builder.Property<Guid?>("SellerId")
+            .HasColumnName("seller_id")
+            .IsRequired(false);
+
+        builder.Property<Guid>("BaseCurrencyId")
+            .HasColumnName("base_currency_id")
+            .IsRequired();
+
+        builder.Property<Guid>("QuoteCurrencyId")
+            .HasColumnName("quote_currency_id")
+            .IsRequired();
 
         builder.Property(x => x.Amount)
             .HasColumnName("amount")

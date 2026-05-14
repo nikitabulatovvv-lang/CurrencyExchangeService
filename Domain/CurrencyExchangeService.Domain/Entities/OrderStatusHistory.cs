@@ -1,6 +1,5 @@
 using CurrencyExchangeService.Domain.Base;
 using CurrencyExchangeService.Domain.Enums;
-using CurrencyExchangeService.Domain.Exceptions;
 
 namespace CurrencyExchangeService.Domain.Entities;
 
@@ -17,12 +16,26 @@ public class OrderStatusHistory : Entity<Guid>
     {
     }
 
-    public OrderStatusHistory(Order order, OrderStatus oldStatus, OrderStatus newStatus, DateTime changedAt)
-        : this(Guid.NewGuid(), order, oldStatus, newStatus, changedAt)
+    /// <summary>
+    /// Создаёт запись истории (используется из <see cref="Order"/>).
+    /// </summary>
+    internal static OrderStatusHistory Create(
+        Order order,
+        OrderStatus oldStatus,
+        OrderStatus newStatus,
+        DateTime changedAtUtc
+    )
     {
+        if (order is null) throw new ArgumentNullValueException(nameof(order));
+
+        var utc = changedAtUtc.Kind == DateTimeKind.Utc
+            ? changedAtUtc
+            : DateTime.SpecifyKind(changedAtUtc, DateTimeKind.Utc);
+
+        return new OrderStatusHistory(Guid.NewGuid(), order, oldStatus, newStatus, utc);
     }
 
-    public OrderStatusHistory(
+    protected OrderStatusHistory(
         Guid id,
         Order order,
         OrderStatus oldStatus,
@@ -31,10 +44,8 @@ public class OrderStatusHistory : Entity<Guid>
     ) : base(id)
     {
         Order = order ?? throw new ArgumentNullValueException(nameof(order));
-
         OldStatus = oldStatus;
         NewStatus = newStatus;
         ChangedAt = changedAt;
     }
 }
-

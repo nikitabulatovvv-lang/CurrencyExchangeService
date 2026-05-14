@@ -23,32 +23,38 @@ public class EfRepository<TEntity, TId>(ApplicationDbContext context)
 
     public async Task<TEntity?> AddAsync(TEntity entity, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(entity, nameof(entity));
+        if (entity is null) return null;
 
         await context.Set<TEntity>().AddAsync(entity, cancellationToken);
-        return await context.SaveChangesAsync(cancellationToken) > 0 ? entity : null;
+        await context.SaveChangesAsync(cancellationToken);
+
+        return entity;
     }
 
     public async Task<bool> UpdateAsync(TEntity entity, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(entity, nameof(entity));
+        if (entity is null) return false;
 
         context.Set<TEntity>().Update(entity);
-        return await context.SaveChangesAsync(cancellationToken) > 0;
+        await context.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 
     public async Task<bool> DeleteAsync(TEntity entity, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(entity, nameof(entity));
+        if (entity is null) return false;
 
         context.Set<TEntity>().Remove(entity);
-        return await context.SaveChangesAsync(cancellationToken) > 0;
+        await context.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 
     public async Task<bool> DeleteAsync(TId id, CancellationToken cancellationToken)
     {
         var entity = await GetByIdAsync(id, cancellationToken);
-        return entity is null ? false : await DeleteAsync(entity, cancellationToken);
+        return entity is not null && await DeleteAsync(entity, cancellationToken);
     }
 }
 

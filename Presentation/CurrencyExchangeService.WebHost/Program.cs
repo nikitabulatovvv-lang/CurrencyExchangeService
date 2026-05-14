@@ -12,6 +12,11 @@ if (string.IsNullOrEmpty(connectionString))
     throw new InvalidOperationException("Connection string for ApplicationDbContext is not configured.");
 }
 
+builder.Services.AddNpgsql<ApplicationDbContext>(connectionString, options =>
+{
+    options.MigrationsAssembly("CurrencyExchangeService.Infrastructure.EntityFramework");
+});
+
 builder.Services.AddSwaggerGen(
     c =>
     {
@@ -21,18 +26,7 @@ builder.Services.AddSwaggerGen(
             Title = "Currency exchange service API",
             Description = "API for creating, viewing, storing, modifying, and cancelling currency exchange orders."
         });
-    }
-);
-
-builder.Services.AddDbContext<ApplicationDbContext>(
-    options =>
-    {
-        options.UseNpgsql(connectionString, npgsql =>
-        {
-            npgsql.MigrationsAssembly("CurrencyExchangeService.Infrastructure.EntityFramework");
-        });
-    }
-);
+    });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -49,6 +43,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MigrateDatabase();
+app.MigrateDatabase<ApplicationDbContext>();
 
 app.Run();

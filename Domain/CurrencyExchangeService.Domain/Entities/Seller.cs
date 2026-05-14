@@ -1,4 +1,5 @@
 using CurrencyExchangeService.Domain.Base;
+using CurrencyExchangeService.Domain.Enums;
 using CurrencyExchangeService.Domain.Exceptions;
 using CurrencyExchangeService.ValueObjects;
 
@@ -6,7 +7,7 @@ namespace CurrencyExchangeService.Domain.Entities;
 
 /// <summary>
 /// Продавец (seller).
-/// 
+///
 /// Хранит свои заявки (Orders) и выполняет действия из use-case диаграммы
 /// для продавца: создание/редактирование заявки на продажу, просмотр активных,
 /// подтверждение сделки.
@@ -28,20 +29,21 @@ public class Seller : Entity<Guid>
     {
     }
 
-    public Seller(Guid id, Name name) : base(id)
+    protected Seller(Guid id, Name name) : base(id)
     {
         Name = name ?? throw new ArgumentNullValueException(nameof(name));
     }
 
     /// <summary>
-    /// Use case: "Создание заявки на продажу".
-    /// Создаёт заявку и добавляет её в коллекцию продавца.
+    /// Use case: «Создание заявки на продажу».
     /// </summary>
+    /// <param name="createdAtUtc">Момент создания заявки (UTC), задаётся снаружи.</param>
     public Order CreateSellOrder(
         Currency baseCurrency,
         Currency quoteCurrency,
         Amount amount,
-        Rate rate
+        Rate rate,
+        DateTime createdAtUtc
     )
     {
         if (baseCurrency is null) throw new ArgumentNullValueException(nameof(baseCurrency));
@@ -49,63 +51,94 @@ public class Seller : Entity<Guid>
         if (amount is null) throw new ArgumentNullValueException(nameof(amount));
         if (rate is null) throw new ArgumentNullValueException(nameof(rate));
 
-        var order = new Order(this, baseCurrency, quoteCurrency, amount, rate);
+        var order = new Order(this, baseCurrency, quoteCurrency, amount, rate, createdAtUtc);
         _orders.Add(order);
         return order;
     }
 
     /// <summary>
-    /// Use case: "Редактирование заявки на продажу".
-    /// Возвращает true, если данные реально изменились.
+    /// Use case: «Редактирование заявки на продажу».
     /// </summary>
-    public bool EditSellOrder(Order order, Amount newAmount, Rate newRate)
+    public bool EditSellOrder(Seller actor, Order order, Amount newAmount, Rate newRate)
     {
-        if (order is null) throw new ArgumentNullException(nameof(order));
-        if (order.Seller != this)
-            throw new OrderOwnershipException(this.Id, "edit_sell_order", order.Id, OrderOwnerType.Seller, this.Id);
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+        if (order is null) throw new ArgumentNullValueException(nameof(order));
+
+        if (!ReferenceEquals(actor, this))
+            throw new OrderSellerOwnershipException(actor, this, order, "Редактирование заявки на продажу");
+
+        if (!_orders.Contains(order))
+            throw new InvalidOperationException(
+                $"Заявка id = {order.Id} не найдена среди заявок продавца «{Name.Value}» (id = {Id})."
+            );
+
+        if (!order.IsActive)
+            throw new InvalidOperationException(
+                $"Заявку id = {order.Id} нельзя редактировать: статус «{order.Status}» (допустимо только «Active»)."
+            );
 
         if (newAmount is null) throw new ArgumentNullValueException(nameof(newAmount));
         if (newRate is null) throw new ArgumentNullValueException(nameof(newRate));
 
-        return order.EditSell(newAmount, newRate);
+        return order.EditSell(actor, newAmount, newRate);
     }
 
     /// <summary>
-    /// Use case: "Подтверждение сделки".
-    /// Переводит заявку в Completed (если это допустимо).
+    /// Use case: «Подтверждение сделки» (владелец подтверждает свою заявку на продажу).
     /// </summary>
-    public bool ConfirmDeal(Order order)
+    public bool ConfirmDeal(Seller actor, Order order)
     {
-        if (order is null) throw new ArgumentNullException(nameof(order));
-        return order.Confirm();
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+        if (order is null) throw new ArgumentNullValueException(nameof(order));
+
+        if (!ReferenceEquals(actor, this))
+            throw new OrderSellerOwnershipException(actor, this, order, "Подтверждение сделки");
+
+        if (!_orders.Contains(order))
+            throw new InvalidOperationException(
+                $"Заявка id = {order.Id} не найдена среди заявок продавца «{Name.Value}» (id = {Id})."
+            );
+
+        return order.Confirm(actor);
     }
 
     /// <summary>
     /// Отмена собственной заявки на продажу.
     /// </summary>
-    public bool CancelSellOrder(Order order)
+    public bool CancelSellOrder(Seller actor, Order order)
     {
-        if (order is null) throw new ArgumentNullException(nameof(order));
-        if (order.Seller != this)
-            throw new OrderOwnershipException(this.Id, "cancel_sell_order", order.Id, OrderOwnerType.Seller, this.Id);
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+        if (order is null) throw new ArgumentNullValueException(nameof(order));
 
-        return order.CancelSell();
+        if (!ReferenceEquals(actor, this))
+            throw new OrderSellerOwnershipException(actor, this, order, "Отмена заявки на продажу");
+
+        if (!_orders.Contains(order))
+            throw new InvalidOperationException(
+                $"Заявка id = {order.Id} не найдена среди заявок продавца «{Name.Value}» (id = {Id})."
+            );
+
+        return order.CancelSell(actor);
     }
 
     /// <summary>
-    /// Use case: "Просмотр активных заявок".
-    /// Возвращает только те заявки, у которых Status == Active.
+    /// Use case: «Просмотр активных заявок».
     /// </summary>
     public IReadOnlyCollection<Order> GetActiveOrders()
         => _orders.Where(o => o.IsActive).ToList().AsReadOnly();
 
     /// <summary>
-    /// Согласие на сделку по чужой активной заявке.
+    /// Use case: «Согласие на сделку по чужой активной заявке на покупку».
+    /// Продавец принимает заявку типа <see cref="OrderType.Buy"/> (контрагент).
     /// </summary>
-    public bool AcceptDeal(Order order)
+    public bool AcceptDeal(Seller actor, Order order)
     {
-        if (order is null) throw new ArgumentNullException(nameof(order));
-        return order.AcceptByCounterparty();
+        if (actor is null) throw new ArgumentNullValueException(nameof(actor));
+        if (order is null) throw new ArgumentNullValueException(nameof(order));
+
+        if (!ReferenceEquals(actor, this))
+            throw new OrderSellerOwnershipException(actor, this, order, "Принятие заявки на покупку");
+
+        return order.AcceptByCounterparty(actor);
     }
 }
-

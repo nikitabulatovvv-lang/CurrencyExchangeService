@@ -1,18 +1,32 @@
+using CurrencyExchangeService.Domain.Entities;
 using CurrencyExchangeService.Domain.Enums;
 
 namespace CurrencyExchangeService.Domain.Exceptions;
 
-public class OrderInvalidOrderTypeException(
-    Guid actorId,
-    string action,
-    OrderType expectedType,
-    OrderType actualType
-) : InvalidOperationException(
-    $"Action '{action}' can't be performed by actor '{actorId}'. Expected order type '{expectedType}', actual '{actualType}'.")
+/// <summary>
+/// Покупатель пытается выполнить действие, допустимое только для заявки другого типа.
+/// </summary>
+public sealed class OrderInvalidOrderTypeBuyerException(Buyer actor, Order order, OrderType expectedType, string actionDescription)
+    : InvalidOperationException(
+        $"Покупатель «{actor.Name.Value}» не может выполнить «{actionDescription}» для заявки id = {order.Id}: " +
+        $"фактический тип заявки «{order.Type}», ожидался «{expectedType}».")
 {
-    public Guid ActorId { get; } = actorId;
-    public string Action { get; } = action;
-    public OrderType ExpectedType { get; } = expectedType;
-    public OrderType ActualType { get; } = actualType;
+    public Buyer Actor => actor;
+    public Order Order => order;
+    public OrderType ExpectedType => expectedType;
+    public string ActionDescription => actionDescription;
 }
 
+/// <summary>
+/// Продавец пытается выполнить действие, допустимое только для заявки другого типа.
+/// </summary>
+public sealed class OrderInvalidOrderTypeSellerException(Seller actor, Order order, OrderType expectedType, string actionDescription)
+    : InvalidOperationException(
+        $"Продавец «{actor.Name.Value}» не может выполнить «{actionDescription}» для заявки id = {order.Id}: " +
+        $"фактический тип заявки «{order.Type}», ожидался «{expectedType}».")
+{
+    public Seller Actor => actor;
+    public Order Order => order;
+    public OrderType ExpectedType => expectedType;
+    public string ActionDescription => actionDescription;
+}

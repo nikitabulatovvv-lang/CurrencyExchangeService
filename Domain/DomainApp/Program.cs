@@ -209,7 +209,7 @@ internal class Program
         var quoteAmount = amount.Value * rate.Value;
         Console.WriteLine($"Итог заявки: {amount.Value} {baseCurrency.Code} ≈ {quoteAmount:F6} {quoteCurrency.Code} по курсу {rate.Value}");
 
-        var order = buyer.CreateBuyOrder(baseCurrency, quoteCurrency, amount, rate);
+        var order = buyer.CreateBuyOrder(baseCurrency, quoteCurrency, amount, rate, DateTime.UtcNow);
         Orders.Add(order);
         Console.WriteLine($"BUY-заявка создана: {order.Id}");
     }
@@ -223,7 +223,7 @@ internal class Program
         var quoteAmount = amount.Value * rate.Value;
         Console.WriteLine($"Итог заявки: {amount.Value} {baseCurrency.Code} ≈ {quoteAmount:F6} {quoteCurrency.Code} по курсу {rate.Value}");
 
-        var order = seller.CreateSellOrder(baseCurrency, quoteCurrency, amount, rate);
+        var order = seller.CreateSellOrder(baseCurrency, quoteCurrency, amount, rate, DateTime.UtcNow);
         Orders.Add(order);
         Console.WriteLine($"SELL-заявка создана: {order.Id}");
     }
@@ -251,12 +251,12 @@ internal class Program
         {
             var newAmount = ReadAmount(order.BaseCurrency.Code.Value);
             var newRate = ReadRate();
-            var changed = buyer.EditBuyOrder(order, newAmount, newRate);
+            var changed = buyer.EditBuyOrder(buyer, order, newAmount, newRate);
             Console.WriteLine(changed ? "Заявка изменена." : "Данные не изменились.");
         }
         else if (action == "2")
         {
-            var changed = buyer.CancelBuyOrder(order);
+            var changed = buyer.CancelBuyOrder(buyer, order);
             Console.WriteLine(changed ? "Заявка отменена." : "Статус не изменился.");
             if (changed) AddHistory(order, "Покупатель отменил свою заявку", buyer.Name.Value, "—");
         }
@@ -285,12 +285,12 @@ internal class Program
         {
             var newAmount = ReadAmount(order.BaseCurrency.Code.Value);
             var newRate = ReadRate();
-            var changed = seller.EditSellOrder(order, newAmount, newRate);
+            var changed = seller.EditSellOrder(seller, order, newAmount, newRate);
             Console.WriteLine(changed ? "Заявка изменена." : "Данные не изменились.");
         }
         else if (action == "2")
         {
-            var changed = seller.CancelSellOrder(order);
+            var changed = seller.CancelSellOrder(seller, order);
             Console.WriteLine(changed ? "Заявка отменена." : "Статус не изменился.");
             if (changed) AddHistory(order, "Продавец отменил свою заявку", "—", seller.Name.Value);
         }
@@ -299,7 +299,7 @@ internal class Program
     private static void BrowseMarketAsBuyer(Buyer buyer)
     {
         var marketOrders = Orders
-            .Where(o => o.Status == OrderStatus.Active && o.Buyer?.Id != buyer.Id)
+            .Where(o => o.Status == OrderStatus.Active && o.Type == OrderType.Sell)
             .ToList();
         if (marketOrders.Count == 0)
         {
@@ -314,12 +314,12 @@ internal class Program
         var agree = Console.ReadLine()?.Trim().ToLowerInvariant();
         if (agree == "y")
         {
-            var changed = buyer.AcceptDeal(order);
+            var changed = buyer.AcceptDeal(buyer, order);
             Console.WriteLine(changed ? "Сделка выполнена." : "Статус не изменился.");
             if (changed)
             {
-                var historyBuyer = order.Type == OrderType.Sell ? buyer.Name.Value : order.Buyer?.Name.Value ?? "—";
-                var historySeller = order.Type == OrderType.Sell ? order.Seller?.Name.Value ?? "—" : buyer.Name.Value;
+                var historyBuyer = buyer.Name.Value;
+                var historySeller = order.Seller?.Name.Value ?? "—";
                 AddHistory(order, "Сделка выполнена", historyBuyer, historySeller);
             }
         }
@@ -328,7 +328,7 @@ internal class Program
     private static void BrowseMarketAsSeller(Seller seller)
     {
         var marketOrders = Orders
-            .Where(o => o.Status == OrderStatus.Active && o.Seller?.Id != seller.Id)
+            .Where(o => o.Status == OrderStatus.Active && o.Type == OrderType.Buy)
             .ToList();
         if (marketOrders.Count == 0)
         {
@@ -343,12 +343,12 @@ internal class Program
         var agree = Console.ReadLine()?.Trim().ToLowerInvariant();
         if (agree == "y")
         {
-            var changed = seller.AcceptDeal(order);
+            var changed = seller.AcceptDeal(seller, order);
             Console.WriteLine(changed ? "Сделка выполнена." : "Статус не изменился.");
             if (changed)
             {
-                var historyBuyer = order.Type == OrderType.Sell ? seller.Name.Value : order.Buyer?.Name.Value ?? "—";
-                var historySeller = order.Type == OrderType.Sell ? order.Seller?.Name.Value ?? "—" : seller.Name.Value;
+                var historyBuyer = order.Buyer?.Name.Value ?? "—";
+                var historySeller = seller.Name.Value;
                 AddHistory(order, "Сделка выполнена", historyBuyer, historySeller);
             }
         }

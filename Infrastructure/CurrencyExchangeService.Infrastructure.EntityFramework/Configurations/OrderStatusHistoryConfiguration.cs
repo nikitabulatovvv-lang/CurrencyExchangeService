@@ -14,7 +14,9 @@ public class OrderStatusHistoryConfiguration : IEntityTypeConfiguration<OrderSta
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
 
-        builder.Property<Guid>("OrderId").HasColumnName("order_id");
+        builder.Property<Guid>("OrderId")
+            .HasColumnName("order_id")
+            .IsRequired();
 
         builder.Property(x => x.OldStatus)
             .HasColumnName("old_status")
